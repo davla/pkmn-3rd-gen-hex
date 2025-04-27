@@ -1,0 +1,9 @@
+{
+  "black-formatter.importStrategy": "fromEnvironment",
+  "isort.importStrategy": "fromEnvironment",
+  "[python]": {
+    "editor.rulers": [
+      88
+    ]
+  }
+}
