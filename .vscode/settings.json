@@ -1,6 +1,7 @@
 {
   "black-formatter.importStrategy": "fromEnvironment",
   "isort.importStrategy": "fromEnvironment",
+  "python.analysis.typeCheckingMode": "strict",
   "[python]": {
     "editor.rulers": [
       88
