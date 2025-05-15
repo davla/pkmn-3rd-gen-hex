@@ -1,0 +1,42 @@
+import sys
+from pathlib import Path
+from typing import Annotated
+
+import typer
+
+from . import STDOUT_ARG
+from .utils import GameSaveBlock, PkmSubstructures
+
+app = typer.Typer()
+
+
+@app.command()
+def dump(
+    save_file: Path,
+    box: int,
+    row: int,
+    col: int,
+    decrypt: bool = True,
+    output_file: Annotated[Path, typer.Argument()] = STDOUT_ARG,
+) -> None:
+    with open(save_file, "rb") as save:
+        save_bytes = bytearray(save.read())
+
+    save_block = GameSaveBlock.from_bytes(save_bytes)
+    pkm_bytes = bytearray(save_block.pc.boxes[box - 1][row - 1, col - 1])
+
+    if decrypt:
+        pkm_bytes[PkmSubstructures.start : PkmSubstructures.end] = (
+            PkmSubstructures.from_bytes(pkm_bytes, decrypt=decrypt).as_bytes()
+        )
+
+    if output_file == STDOUT_ARG:
+        sys.stdout.buffer.write(pkm_bytes)
+    else:
+        with open(output_file, "wb") as output:
+            output.write(pkm_bytes)
+
+
+@app.command()
+def show(box: int, slot: int):
+    pass
