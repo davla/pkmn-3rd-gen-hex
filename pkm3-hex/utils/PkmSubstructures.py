@@ -5,6 +5,8 @@ from dataclasses import dataclass
 from enum import StrEnum, auto
 from typing import Iterable, Self
 
+from .bytes_handling import read_int
+
 
 @dataclass
 class PkmSubstructures:
@@ -71,7 +73,7 @@ class PkmSubstructures:
 
     @classmethod
     def from_bytes(cls, bytes: bytes, *, decrypt: bool = True):
-        personality_value = int.from_bytes(bytes[0:4], "little")
+        personality_value = read_int(bytes, 4)
         order = cls.Order(personality_value % 24)
         return cls(
             order,

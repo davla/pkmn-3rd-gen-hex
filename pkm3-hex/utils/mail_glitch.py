@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from typing import Iterable, Optional
 
 from ..data import easy_chat
-from .parse_bytes import read_number
+from .bytes_handling import read_int
 from .PkmSubstructures import PkmSubstructures
 
 
@@ -38,8 +38,8 @@ class MailWords:
 def find_mail_words(
     pkm_bytes: bytes, order: PkmSubstructures.Order
 ) -> Iterable[MailWords]:
-    pv_high, pv_low = read_number(pkm_bytes[2:], 2), read_number(pkm_bytes, 2)
-    tid_high, tid_low = read_number(pkm_bytes[6:], 2), read_number(pkm_bytes[4:], 2)
+    pv_high, pv_low = read_int(pkm_bytes[2:], 2), read_int(pkm_bytes, 2)
+    tid_high, tid_low = read_int(pkm_bytes[6:], 2), read_int(pkm_bytes[4:], 2)
 
     high_word_pairs = find_encryption_word_pairs(pv_high, tid_high)
     low_word_pairs = find_encryption_word_pairs(pv_low, tid_low)

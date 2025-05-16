@@ -3,6 +3,8 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Literal, Self
 
+from .bytes_handling import read_int
+
 
 @dataclass
 class Section:
@@ -49,19 +51,13 @@ class Section:
 
     @classmethod
     def from_bytes(cls, buffer: bytes) -> Self:
-        type = cls.Type(
-            int.from_bytes(buffer[cls.ID_OFFSET : cls.CHECKSUM_OFFSET], "little")
-        )
+        type = cls.Type(read_int(buffer[cls.ID_OFFSET : cls.CHECKSUM_OFFSET]))
         return cls(
             data=buffer[cls.DATA_OFFSET : type.size],
             type=type,
-            checksum=int.from_bytes(
-                buffer[cls.CHECKSUM_OFFSET : cls.SIGNATURE_OFFSET], "little"
-            ),
-            signature=int.from_bytes(
-                buffer[cls.SIGNATURE_OFFSET : cls.SAVE_INDEX_OFFSET], "little"
-            ),
-            save_index=int.from_bytes(buffer[cls.SAVE_INDEX_OFFSET :], "little"),
+            checksum=read_int(buffer[cls.CHECKSUM_OFFSET : cls.SIGNATURE_OFFSET]),
+            signature=read_int(buffer[cls.SIGNATURE_OFFSET : cls.SAVE_INDEX_OFFSET]),
+            save_index=read_int(buffer[cls.SAVE_INDEX_OFFSET :]),
         )
 
 
@@ -98,9 +94,7 @@ class Pc:
     @classmethod
     def from_bytes(cls, buffer: bytes) -> Self:
         return cls(
-            current_box=int.from_bytes(
-                buffer[cls.CURRENT_BOX_OFFSET : cls.PKMN_OFFSET], "little"
-            ),
+            current_box=read_int(buffer[cls.CURRENT_BOX_OFFSET : cls.PKMN_OFFSET]),
             boxes=[
                 cls.Box(bytes(b))
                 for b in itertools.batched(
@@ -168,4 +162,4 @@ class GameSaveBlock:
         last_section_offset = cls.SECTION_SIZE * (cls.SECTION_COUNT - 1)
         start = block_start + last_section_offset + Section.SAVE_INDEX_OFFSET
         save_index_bytes = save_file[start : start + Section.SAVE_INDEX_SIZE]
-        return int.from_bytes(save_index_bytes, "little")
+        return read_int(save_index_bytes)

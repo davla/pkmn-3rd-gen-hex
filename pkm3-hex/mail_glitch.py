@@ -8,7 +8,7 @@ from rich.table import Table
 
 from . import FILE_STD_STREAM_ARG
 from .data import easy_chat
-from .utils import MailWords, PkmSubstructures, find_mail_words
+from .utils import MailWords, PkmSubstructures, find_mail_words, format_hex
 
 app = typer.Typer()
 
@@ -55,5 +55,7 @@ def print_words(output: IO[str], mail_words: list[MailWords]) -> bool:
 
 def word_str(word: Optional[easy_chat.Word]) -> str:
     return (
-        "???" if word is None else f"{word.text} ({word.category}, 0x{word.index:04X})"
+        "???"
+        if word is None
+        else f"{word.text} ({word.category}, 0x{format_hex(word.index, width=4)})"
     )
