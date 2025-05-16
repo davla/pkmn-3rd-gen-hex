@@ -4,7 +4,7 @@ from typing import Annotated
 
 import typer
 
-from . import STDOUT_ARG
+from . import FILE_STD_STREAM_ARG
 from .utils import GameSaveBlock, PkmSubstructures
 
 app = typer.Typer()
@@ -17,7 +17,7 @@ def dump(
     row: int,
     col: int,
     decrypt: bool = True,
-    output_file: Annotated[Path, typer.Argument()] = STDOUT_ARG,
+    output_file: Annotated[Path, typer.Argument()] = FILE_STD_STREAM_ARG,
 ) -> None:
     with open(save_file, "rb") as save:
         save_bytes = bytearray(save.read())
@@ -30,7 +30,7 @@ def dump(
             PkmSubstructures.from_bytes(pkm_bytes, decrypt=decrypt).as_bytes()
         )
 
-    if output_file == STDOUT_ARG:
+    if output_file == FILE_STD_STREAM_ARG:
         sys.stdout.buffer.write(pkm_bytes)
     else:
         with open(output_file, "wb") as output:

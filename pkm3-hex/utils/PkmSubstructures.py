@@ -2,12 +2,50 @@ import functools
 import itertools
 import operator
 from dataclasses import dataclass
-from typing import Iterable
+from enum import StrEnum, auto
+from typing import Iterable, Self
+
+from .bytes_handling import read_int
 
 
 @dataclass
 class PkmSubstructures:
-    order: str
+    class Order(StrEnum):
+        GAEM = (auto(), 0)
+        GAME = (auto(), 1)
+        GEAM = (auto(), 2)
+        GEMA = (auto(), 3)
+        GMAE = (auto(), 4)
+        GMEA = (auto(), 5)
+        AGEM = (auto(), 6)
+        AGME = (auto(), 7)
+        AEGM = (auto(), 8)
+        AEMG = (auto(), 9)
+        AMGE = (auto(), 10)
+        AMEG = (auto(), 11)
+        EGAM = (auto(), 12)
+        EGMA = (auto(), 13)
+        EAGM = (auto(), 14)
+        EAMG = (auto(), 15)
+        EMGA = (auto(), 16)
+        EMAG = (auto(), 17)
+        MGAE = (auto(), 18)
+        MGEA = (auto(), 19)
+        MAGE = (auto(), 20)
+        MAEG = (auto(), 21)
+        MEGA = (auto(), 22)
+        MEAG = (auto(), 23)
+
+        mod24: int
+
+        def __new__(cls, name: str, mod24: int) -> Self:
+            self = str.__new__(cls)
+            self._value_ = name
+            self.mod24 = mod24
+            self._add_value_alias_(mod24)  # type: ignore
+            return self
+
+    order: Order
     growth: bytes
     attacks: bytes
     evs: bytes
@@ -18,43 +56,16 @@ class PkmSubstructures:
     count = 4
     end = start + size * count
 
-    order_dict = {
-        0: "GAEM",
-        1: "GAME",
-        2: "GEAM",
-        3: "GEMA",
-        4: "GMAE",
-        5: "GMEA",
-        6: "AGEM",
-        7: "AGME",
-        8: "AEGM",
-        9: "AEMG",
-        10: "AMGE",
-        11: "AMEG",
-        12: "EGAM",
-        13: "EGMA",
-        14: "EAGM",
-        15: "EAMG",
-        16: "EMGA",
-        17: "EMAG",
-        18: "MGAE",
-        19: "MGEA",
-        20: "MAGE",
-        21: "MAEG",
-        22: "MEGA",
-        23: "MEAG",
-    }
-
     def as_bytes(self) -> bytes:
         return bytes(
             itertools.chain.from_iterable(
                 bytes
                 for _, bytes in sorted(
                     (
-                        (self.order.index("G"), self.growth),
-                        (self.order.index("A"), self.attacks),
-                        (self.order.index("E"), self.evs),
-                        (self.order.index("M"), self.misc),
+                        (self.order.name.index("G"), self.growth),
+                        (self.order.name.index("A"), self.attacks),
+                        (self.order.name.index("E"), self.evs),
+                        (self.order.name.index("M"), self.misc),
                     )
                 )
             )
@@ -62,14 +73,14 @@ class PkmSubstructures:
 
     @classmethod
     def from_bytes(cls, bytes: bytes, *, decrypt: bool = True):
-        personality_value = int.from_bytes(bytes[0:4], byteorder="little")
-        order = cls.order_dict[personality_value % 24]
+        personality_value = read_int(bytes, 4)
+        order = cls.Order(personality_value % 24)
         return cls(
             order,
-            growth=cls._get_substructure_at(bytes, order.index("G"), decrypt),
-            attacks=cls._get_substructure_at(bytes, order.index("A"), decrypt),
-            evs=cls._get_substructure_at(bytes, order.index("E"), decrypt),
-            misc=cls._get_substructure_at(bytes, order.index("M"), decrypt),
+            growth=cls._get_substructure_at(bytes, order.name.index("G"), decrypt),
+            attacks=cls._get_substructure_at(bytes, order.name.index("A"), decrypt),
+            evs=cls._get_substructure_at(bytes, order.name.index("E"), decrypt),
+            misc=cls._get_substructure_at(bytes, order.name.index("M"), decrypt),
         )
 
     @classmethod

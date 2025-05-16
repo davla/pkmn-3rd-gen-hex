@@ -1,3 +1,3 @@
 from pathlib import Path
 
-STDOUT_ARG = Path("-")
+FILE_STD_STREAM_ARG = Path("-")
