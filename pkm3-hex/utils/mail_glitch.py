@@ -1,4 +1,5 @@
 import itertools
+import math
 from dataclasses import dataclass
 from typing import Iterable, Optional
 
@@ -32,7 +33,9 @@ class MailWords:
                 w.text for w in easy_chat.words.values() if w.category == word.category
             )
         )
-        return sorted_words_in_category.index(word.text)
+        return word.category.scroll_distance + math.ceil(
+            sorted_words_in_category.index(word.text) / 2
+        )
 
 
 def find_mail_words(

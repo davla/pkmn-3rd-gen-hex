@@ -1,31 +1,40 @@
 from dataclasses import dataclass
 from enum import StrEnum, auto
+from typing import Self
 
 
 @dataclass
 class Word:
     class Category(StrEnum):
-        ACTIONS = auto()
-        ADJECTIVES = auto()
-        BATTLE = auto()
-        CONDITIONS = auto()
-        ENDINGS = auto()
-        EVENTS = auto()
-        FEELINGS = auto()
-        GREETINGS = auto()
-        HOBBIES = auto()
-        LIFESTYLE = auto()
-        MISC = auto()
-        MOVE_1 = auto()
-        MOVE_2 = auto()
-        PEOPLE = auto()
-        POKEMON = auto()
-        POKEMON_2 = auto()
-        SPEECH = auto()
-        STATUS = auto()
-        TIME = auto()
-        TRAINER = auto()
-        VOICES = auto()
+        ACTIONS = (auto(), 6)
+        ADJECTIVES = (auto(), 8)
+        BATTLE = (auto(), 2)
+        CONDITIONS = (auto(), 5)
+        ENDINGS = (auto(), 4)
+        EVENTS = (auto(), 9)
+        FEELINGS = (auto(), 5)
+        GREETINGS = (auto(), 2)
+        HOBBIES = (auto(), 7)
+        LIFESTYLE = (auto(), 6)
+        MISC = (auto(), 8)
+        MOVE_1 = (auto(), 9)
+        MOVE_2 = (auto(), 10)
+        PEOPLE = (auto(), 3)
+        POKEMON = (auto(), 0)
+        POKEMON_2 = (auto(), 10)
+        SPEECH = (auto(), 4)
+        STATUS = (auto(), 1)
+        TIME = (auto(), 7)
+        TRAINER = (auto(), 1)
+        VOICES = (auto(), 3)
+
+        scroll_distance: int
+
+        def __new__(cls, name: str, scroll_distance: int) -> Self:
+            self = str.__new__(cls)
+            self._value_ = name
+            self.scroll_distance = scroll_distance
+            return self
 
     text: str
     index: int
