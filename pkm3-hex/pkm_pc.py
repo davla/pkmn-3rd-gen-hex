@@ -5,7 +5,7 @@ from typing import Annotated
 import typer
 
 from . import FILE_STD_STREAM_ARG
-from .utils import GameSaveBlock, PkmSubstructures
+from .utils import GameSaveBlock
 
 app = typer.Typer()
 
@@ -23,12 +23,14 @@ def dump(
         save_bytes = bytearray(save.read())
 
     save_block = GameSaveBlock.from_bytes(save_bytes)
-    pkm_bytes = bytearray(save_block.pc.boxes[box - 1][row - 1, col - 1])
+    box_data = save_block.pc.boxes[box - 1]
 
-    if decrypt:
-        pkm_bytes[PkmSubstructures.start : PkmSubstructures.end] = (
-            PkmSubstructures.from_bytes(pkm_bytes, decrypt=decrypt).as_bytes()
-        )
+    row_index, col_index = row - 1, col - 1
+    pkm_bytes = (
+        box_data[row_index, col_index].data
+        if decrypt
+        else box_data.raw_pkm_bytes(row_index, col_index)
+    )
 
     if output_file == FILE_STD_STREAM_ARG:
         sys.stdout.buffer.write(pkm_bytes)

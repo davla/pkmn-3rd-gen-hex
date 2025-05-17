@@ -8,14 +8,14 @@ from rich.table import Table
 
 from . import FILE_STD_STREAM_ARG
 from .data import easy_chat
-from .utils import MailWords, PkmSubstructures, find_mail_words, format_hex
+from .utils import MailWords, PkmSubstructuresOrder, find_mail_words, format_hex
 
 app = typer.Typer()
 
 
 @app.command()
 def words(
-    order: PkmSubstructures.Order,
+    order: PkmSubstructuresOrder,
     pkm_bytes_file: Annotated[Path, typer.Argument()] = FILE_STD_STREAM_ARG,
     output_file: Annotated[Path, typer.Argument()] = FILE_STD_STREAM_ARG,
 ) -> None:

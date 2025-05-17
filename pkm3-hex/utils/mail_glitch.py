@@ -4,7 +4,7 @@ from typing import Iterable, Optional
 
 from ..data import easy_chat
 from .bytes_handling import read_int
-from .PkmSubstructures import PkmSubstructures
+from .Pkm import PkmSubstructuresOrder
 
 
 @dataclass
@@ -36,7 +36,7 @@ class MailWords:
 
 
 def find_mail_words(
-    pkm_bytes: bytes, order: PkmSubstructures.Order
+    pkm_bytes: bytes, order: PkmSubstructuresOrder
 ) -> Iterable[MailWords]:
     pv_high, pv_low = read_int(pkm_bytes[2:], 2), read_int(pkm_bytes, 2)
     tid_high, tid_low = read_int(pkm_bytes[6:], 2), read_int(pkm_bytes[4:], 2)
