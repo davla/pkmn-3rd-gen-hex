@@ -277,6 +277,7 @@ class PcPkm:
 
     # Substructures
     substructure_order: PkmSubstructuresOrder
+    substructure_encryption_key: int
     growth: PkmGrowth
     attacks: PkmAttacks
     evs_and_conditions: PkmEvsAndConditions
@@ -302,10 +303,11 @@ class PcPkm:
     def from_bytes(cls, buffer: bytes, *, decrypt_substructures: bool = True) -> Self:
         pv_bytes = buffer[cls.PV_OFFSET : cls.OT_ID_OFFSET]
         otid_bytes = buffer[cls.OT_ID_OFFSET : cls.NICKNAME_OFFSET]
+        encryption_key = bytes(cls._pairwise_xor(pv_bytes, otid_bytes))
         if decrypt_substructures:
             buffer = bytearray(buffer)
             buffer[cls.SUBSTRUCTURES_OFFSET :] = cls._decrypt_substructures(
-                buffer[cls.SUBSTRUCTURES_OFFSET :], pv_bytes, otid_bytes
+                buffer[cls.SUBSTRUCTURES_OFFSET :], encryption_key
             )
         substructure_bytes = buffer[cls.SUBSTRUCTURES_OFFSET :]
 
@@ -322,6 +324,7 @@ class PcPkm:
             markings=buffer[cls.MARKINGS_OFFSET],
             checksum=read_int(buffer[cls.CHECKSUM_OFFSET :], 2),
             substructure_order=substructure_order,
+            substructure_encryption_key=read_int(encryption_key),
             growth=PkmGrowth.from_bytes(
                 cls._get_substructure_bytes(substructure_bytes, substructure_order, "G")
             ),
@@ -338,10 +341,7 @@ class PcPkm:
         )
 
     @classmethod
-    def _decrypt_substructures(
-        cls, buffer: bytes, pv_bytes: bytes, otid_bytes: bytes
-    ) -> bytes:
-        encryption_key = cls._pairwise_xor(pv_bytes, otid_bytes)
+    def _decrypt_substructures(cls, buffer: bytes, encryption_key: bytes) -> bytes:
         return bytes(cls._pairwise_xor(itertools.cycle(encryption_key), buffer))
 
     @classmethod

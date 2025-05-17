@@ -77,6 +77,10 @@ def print_pkm(pkm: PcPkm, output: IO[str]) -> None:
             format_hex(pkm.original_trainer_id, byte_size=4),
         ),
         col(label("Substructure order"), pkm.substructure_order.value.upper()),
+        col(
+            label("Substructure encryption key"),
+            format_hex(pkm.substructure_encryption_key, byte_size=4),
+        ),
         col(label("Nickname"), format_bytes(pkm.nickname)),
         col(label("Language"), format_hex(pkm.language, byte_size=1)),
         col(label("Bad egg?"), str(pkm.is_bad_egg)),
