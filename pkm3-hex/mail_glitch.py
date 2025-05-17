@@ -57,5 +57,5 @@ def word_str(word: Optional[easy_chat.Word]) -> str:
     return (
         "???"
         if word is None
-        else f"{word.text} ({word.category}, 0x{format_hex(word.index, width=4)})"
+        else f"{word.text} ({word.category}, 0x{format_hex(word.index, byte_size=2)})"
     )
