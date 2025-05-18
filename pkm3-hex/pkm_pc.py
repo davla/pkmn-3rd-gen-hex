@@ -10,7 +10,8 @@ from rich.panel import Panel
 from rich.table import Table
 
 from . import FILE_STD_STREAM_ARG
-from .utils import GameSaveBlock, PcPkm, format_bytes, format_hex
+from .data import IndexedItem
+from .utils import GameSaveBlock, NumberByteSize, PcPkm, format_bytes, format_hex
 
 app = typer.Typer()
 
@@ -91,25 +92,22 @@ def print_pkm(pkm: PcPkm, output: IO[str]) -> None:
 
     growth = box(
         "Growth",
-        col(label("Species"), format_hex(pkm.growth.species, byte_size=2)),
-        col(label("Held item"), format_hex(pkm.growth.held_item, byte_size=2)),
+        col(label("Species"), print_indexed_item(pkm.growth.species, byte_size=2)),
+        col(label("Held item"), print_indexed_item(pkm.growth.held_item, byte_size=2)),
         col(label("Experience"), format_hex(pkm.growth.experience, byte_size=4)),
         col(
             label("PP bonuses"),
             f"{" - ".join(map(str, pkm.growth.pp_ups))} ({format_hex(pkm.growth.pp_ups_byte, byte_size=1)})",
         ),
-        col(
-            label("Friendship"),
-            f"0x{format_hex(pkm.growth.friendship, byte_size=1)}",
-        ),
+        col(label("Friendship"), format_hex(pkm.growth.friendship, byte_size=1)),
     )
 
     attacks = box(
         "Attacks",
-        col(label("Move 1"), format_hex(pkm.attacks.move1, byte_size=2)),
-        col(label("Move 2"), format_hex(pkm.attacks.move2, byte_size=2)),
-        col(label("Move 3"), format_hex(pkm.attacks.move3, byte_size=2)),
-        col(label("Move 4"), format_hex(pkm.attacks.move4, byte_size=2)),
+        col(label("Move 1"), print_indexed_item(pkm.attacks.move1, byte_size=2)),
+        col(label("Move 2"), print_indexed_item(pkm.attacks.move2, byte_size=2)),
+        col(label("Move 3"), print_indexed_item(pkm.attacks.move3, byte_size=2)),
+        col(label("Move 4"), print_indexed_item(pkm.attacks.move4, byte_size=2)),
         col(label("PP 1"), format_hex(pkm.attacks.pp1, byte_size=1)),
         col(label("PP 2"), format_hex(pkm.attacks.pp2, byte_size=1)),
         col(label("PP 3"), format_hex(pkm.attacks.pp3, byte_size=1)),
@@ -233,7 +231,7 @@ def print_pkm(pkm: PcPkm, output: IO[str]) -> None:
                 pkrs,
                 col(
                     label("Met location"),
-                    format_hex(pkm.misc.met_location, byte_size=1),
+                    print_indexed_item(pkm.misc.met_location, byte_size=1),
                 ),
                 origins,
                 wrapping=False,
@@ -248,6 +246,10 @@ def print_pkm(pkm: PcPkm, output: IO[str]) -> None:
 
     console = Console(file=output)
     console.print(layout, misc)
+
+
+def print_indexed_item(item: IndexedItem, *, byte_size: NumberByteSize) -> str:
+    return f"{'[red bold]GLITCH[/] ' if item.is_glitch else ''}{item.name} ({format_hex(item.index, byte_size=byte_size)})"
 
 
 def box(title: str, *items: RenderableType) -> RenderableType:

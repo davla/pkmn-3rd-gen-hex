@@ -4,6 +4,11 @@ from dataclasses import dataclass
 from enum import StrEnum, auto
 from typing import Iterable, Literal, Self
 
+from .. import data
+from ..data.items import Item
+from ..data.locations import Location
+from ..data.moves import Move
+from ..data.pkm_species import PkmSpecies
 from .bytes_handling import read_int
 
 
@@ -46,8 +51,8 @@ class PkmSubstructuresOrder(StrEnum):
 @dataclass
 class PkmGrowth:
     # Parsed
-    species: int
-    held_item: int
+    species: PkmSpecies
+    held_item: Item
     experience: int
     friendship: int
 
@@ -69,8 +74,12 @@ class PkmGrowth:
     @classmethod
     def from_bytes(cls, buffer: bytes) -> Self:
         return cls(
-            species=read_int(buffer[cls.SPECIES_OFFSET : cls.HELD_ITEM_OFFSET]),
-            held_item=read_int(buffer[cls.HELD_ITEM_OFFSET : cls.EXP_OFFSET]),
+            species=data.pkm_species[
+                read_int(buffer[cls.SPECIES_OFFSET : cls.HELD_ITEM_OFFSET])
+            ],
+            held_item=data.items[
+                read_int(buffer[cls.HELD_ITEM_OFFSET : cls.EXP_OFFSET])
+            ],
             experience=read_int(buffer[cls.EXP_OFFSET : cls.PP_OFFSET]),
             friendship=buffer[cls.FRIENDSHIP_OFFSET],
             data=buffer,
@@ -81,10 +90,10 @@ class PkmGrowth:
 @dataclass
 class PkmAttacks:
     # Parsed
-    move1: int
-    move2: int
-    move3: int
-    move4: int
+    move1: Move
+    move2: Move
+    move3: Move
+    move4: Move
     pp1: int
     pp2: int
     pp3: int
@@ -105,10 +114,10 @@ class PkmAttacks:
     @classmethod
     def from_bytes(cls, buffer: bytes) -> Self:
         return cls(
-            move1=read_int(buffer[cls.MOVE1_OFFSET : cls.MOVE2_OFFSET]),
-            move2=read_int(buffer[cls.MOVE2_OFFSET : cls.MOVE3_OFFSET]),
-            move3=read_int(buffer[cls.MOVE3_OFFSET : cls.MOVE4_OFFSET]),
-            move4=read_int(buffer[cls.MOVE4_OFFSET : cls.PP1_OFFSET]),
+            move1=data.moves[read_int(buffer[cls.MOVE1_OFFSET : cls.MOVE2_OFFSET])],
+            move2=data.moves[read_int(buffer[cls.MOVE2_OFFSET : cls.MOVE3_OFFSET])],
+            move3=data.moves[read_int(buffer[cls.MOVE3_OFFSET : cls.MOVE4_OFFSET])],
+            move4=data.moves[read_int(buffer[cls.MOVE4_OFFSET : cls.PP1_OFFSET])],
             pp1=buffer[cls.PP1_OFFSET],
             pp2=buffer[cls.PP2_OFFSET],
             pp3=buffer[cls.PP3_OFFSET],
@@ -179,7 +188,7 @@ class PkmMisc:
     def pkrs_strain(self) -> int:
         return (self.pkrs_byte >> 4) & 0x0F
 
-    met_location: int
+    met_location: Location
 
     @property
     def original_trainer_gender(self) -> Literal["M", "F"]:
@@ -253,7 +262,7 @@ class PkmMisc:
     def from_bytes(cls, buffer: bytes) -> Self:
         return cls(
             pkrs_byte=buffer[cls.PKRS_OFFSET],
-            met_location=buffer[cls.MET_LOCATION_OFFSET],
+            met_location=data.locations[buffer[cls.MET_LOCATION_OFFSET]],
             origin=read_int(buffer[cls.ORIGINS_OFFSET : cls.IVS_EGG_ABILITY_OFFSET]),
             ivs_egg_ability=read_int(
                 buffer[cls.IVS_EGG_ABILITY_OFFSET : cls.RIBBONS_OBEDIENCE_OFFSET]
