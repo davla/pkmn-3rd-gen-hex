@@ -4,6 +4,7 @@ from enum import Enum
 from typing import Literal, Self
 
 from .bytes_handling import read_int
+from .Pkm import PcPkm
 
 
 @dataclass
@@ -68,16 +69,20 @@ class Pc:
 
         ROWS = 5
         COLS = 6
-        PKM_SIZE = 80
-        SIZE = PKM_SIZE * ROWS * COLS
+        SIZE = PcPkm.SIZE * ROWS * COLS
 
         def __init__(self, buffer: bytes):
             self._pkm = buffer
 
-        def __getitem__(self, pos: tuple[int, int]) -> bytes:
+        def __getitem__(self, pos: tuple[int, int]) -> PcPkm:
             row, col = pos
-            start = row * self.COLS + col * self.PKM_SIZE
-            return self._pkm[start : start + self.PKM_SIZE]
+            return PcPkm.from_bytes(
+                self.raw_pkm_bytes(row, col), decrypt_substructures=True
+            )
+
+        def raw_pkm_bytes(self, row: int, col: int) -> bytes:
+            start = row * self.COLS + col * PcPkm.SIZE
+            return self._pkm[start : start + PcPkm.SIZE]
 
     current_box: int
     boxes: list[Box]

@@ -1,10 +1,11 @@
 import itertools
+import math
 from dataclasses import dataclass
 from typing import Iterable, Optional
 
 from ..data import easy_chat
 from .bytes_handling import read_int
-from .PkmSubstructures import PkmSubstructures
+from .Pkm import PkmSubstructuresOrder
 
 
 @dataclass
@@ -32,11 +33,13 @@ class MailWords:
                 w.text for w in easy_chat.words.values() if w.category == word.category
             )
         )
-        return sorted_words_in_category.index(word.text)
+        return word.category.scroll_distance + math.ceil(
+            sorted_words_in_category.index(word.text) / 2
+        )
 
 
 def find_mail_words(
-    pkm_bytes: bytes, order: PkmSubstructures.Order
+    pkm_bytes: bytes, order: PkmSubstructuresOrder
 ) -> Iterable[MailWords]:
     pv_high, pv_low = read_int(pkm_bytes[2:], 2), read_int(pkm_bytes, 2)
     tid_high, tid_low = read_int(pkm_bytes[6:], 2), read_int(pkm_bytes[4:], 2)
