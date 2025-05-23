@@ -1,4 +1,6 @@
+import json
 import sys
+from enum import StrEnum
 from pathlib import Path
 from typing import IO, Annotated, Optional
 
@@ -9,9 +11,20 @@ from rich.table import Table
 
 from . import FILE_STD_STREAM_ARG
 from .data import easy_chat
-from .utils import MailWords, PkmSubstructuresOrder, find_mail_words, format_hex
+from .utils import (
+    MailWords,
+    PkmJSONSerializer,
+    PkmSubstructuresOrder,
+    find_mail_words,
+    format_hex,
+)
 
 app = typer.Typer()
+
+
+class OutputFormat(StrEnum):
+    JSON = "json"
+    PRETTY = "pretty"
 
 
 @app.command()
@@ -19,6 +32,7 @@ def words(
     order: PkmSubstructuresOrder,
     pkm_bytes_file: Annotated[Path, typer.Argument()] = FILE_STD_STREAM_ARG,
     output_file: Annotated[Path, typer.Argument()] = FILE_STD_STREAM_ARG,
+    output_format: OutputFormat = OutputFormat.PRETTY,
     limit: Optional[int] = None,
 ) -> None:
     if pkm_bytes_file == FILE_STD_STREAM_ARG:
@@ -31,16 +45,22 @@ def words(
     displayed_mail_words = sorted(mail_words, key=MailWords.scroll_distance)[:limit]
 
     if output_file == FILE_STD_STREAM_ARG:
-        success = print_words(sys.stdout, displayed_mail_words)
+        success = print_words(displayed_mail_words, sys.stdout, output_format)
     else:
         with open(output_file, "w") as output:
-            success = print_words(output, displayed_mail_words)
+            success = print_words(displayed_mail_words, output, output_format)
 
     if not success:
         raise typer.Exit(63)
 
 
-def print_words(output: IO[str], mail_words: list[MailWords]) -> bool:
+def print_words(
+    mail_words: list[MailWords], output: IO[str], format: OutputFormat
+) -> bool:
+    if format == OutputFormat.JSON:
+        json.dump(mail_words, output, cls=PkmJSONSerializer)
+        return True
+
     if not mail_words:
         print("No mail glitch words found", file=output)
         return False
@@ -62,5 +82,5 @@ def word_str(word: Optional[easy_chat.Word]) -> str:
     return (
         "???"
         if word is None
-        else f"{word.text} ({word.category.value}, 0x{format_hex(word.index, byte_size=2)})"
+        else f"{word.text} ({word.category.value}, {format_hex(word.index, byte_size=2)})"
     )
