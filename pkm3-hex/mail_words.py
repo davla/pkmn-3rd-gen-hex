@@ -1,5 +1,6 @@
 import json
 import os
+import textwrap
 from enum import StrEnum
 from pathlib import Path
 from typing import IO, Optional, cast
@@ -35,6 +36,53 @@ class PkmOutputFormat(StrEnum):
 
 
 @app.command()
+def apply(
+    pkm_bytes_file: Optional[typer.FileBinaryRead] = None,
+    save_file: Optional[typer.FileBinaryRead] = None,
+    box_pos: Optional[tuple[int, int, int]] = None,
+    words_file: Optional[typer.FileText] = None,
+    output_file: Path = Path("-"),
+    output_format: Optional[PkmOutputFormat] = PkmOutputFormat.PRETTY,
+) -> None:
+    (pkm_bytes, is_encrypted) = get_pkm_bytes(pkm_bytes_file, save_file, box_pos)
+    words = cast(MailWords, json.load(words_file, cls=PkmJSONSerializer))
+    pkm = words.apply_to_pkm(pkm_bytes, is_encrypted=is_encrypted)
+
+    write_mode = "wb" if output_format == PkmOutputFormat.BINARY else "w"
+    with typer.open_file(output_file, mode=write_mode) as output:
+        if output_format == PkmOutputFormat.BINARY:
+            output.write(pkm.data)
+        else:
+            pretty_print.pkm(pkm, output)
+
+
+@app.command()
+def check(
+    pkm_bytes_file: Optional[typer.FileBinaryRead] = None,
+    save_file: Optional[typer.FileBinaryRead] = None,
+    box_pos: Optional[tuple[int, int, int]] = None,
+    output_file: typer.FileTextWrite = std_stream_default_opt,
+):
+    (pkm_bytes, is_encrypted) = get_pkm_bytes(pkm_bytes_file, save_file, box_pos)
+    pkm = PcPkm.from_bytes(pkm_bytes, xor_substructures=is_encrypted)
+    mail_words = list(MailWords.find_for_pkm(pkm))
+
+    if not mail_words:
+        print(
+            textwrap.dedent(
+                f"""
+                😭😭😭 You're out of luck. 😭😭😭
+                There are no easy chat words that can change this Pokémon's
+                substructure order without transforming it into a Bad Egg
+                """
+            ).strip()
+        )
+        raise typer.Exit(63)
+
+    print_words(mail_words, output_file, with_substructure_order=True)
+
+
+@app.command()
 def order(
     order: PkmSubstructuresOrder,
     pkm_bytes_file: Optional[typer.FileBinaryRead] = None,
@@ -54,31 +102,19 @@ def order(
         json.dump(mail_words, output_file, cls=PkmJSONSerializer)
     else:
         if not mail_words:
-            print("No mail glitch words found", file=output_file)
-            raise typer.Exit(63)
+            print(
+                textwrap.dedent(
+                    f"""
+                    😢😢😢 This can't be done. 😢😢😢
+                    There are no easy chat words that can set this Pokémon's
+                    substructure order to {order.name.upper()} without transforming it
+                    into a Bad Egg
+                    """
+                ).strip()
+            )
+            raise typer.Exit(62)
 
-        print_words(mail_words, output_file)
-
-
-@app.command()
-def apply(
-    pkm_bytes_file: Optional[typer.FileBinaryRead] = None,
-    save_file: Optional[typer.FileBinaryRead] = None,
-    box_pos: Optional[tuple[int, int, int]] = None,
-    words_file: Optional[typer.FileText] = None,
-    output_file: Path = Path("-"),
-    output_format: Optional[PkmOutputFormat] = PkmOutputFormat.PRETTY,
-) -> None:
-    (pkm_bytes, is_encrypted) = get_pkm_bytes(pkm_bytes_file, save_file, box_pos)
-    words = cast(MailWords, json.load(words_file, cls=PkmJSONSerializer))
-    pkm = words.apply_to_pkm(pkm_bytes, is_encrypted=is_encrypted)
-
-    write_mode = "wb" if output_format == PkmOutputFormat.BINARY else "w"
-    with typer.open_file(output_file, mode=write_mode) as output:
-        if output_format == PkmOutputFormat.BINARY:
-            output.write(pkm.data)
-        else:
-            pretty_print.pkm(pkm, output)
+        print_words(mail_words, output_file, with_substructure_order=False)
 
 
 def get_pkm_bytes(
@@ -117,22 +153,27 @@ def get_pkm_bytes(
             )
 
 
-def print_words(mail_words: list[MailWords], output: IO[str]):
-    mail_word_tables = map(make_mail_words_table, mail_words)
+def print_words(
+    mail_words: list[MailWords], output: IO[str], *, with_substructure_order: bool
+):
+    mail_word_tables = (
+        make_mail_words_table(words, with_substructure_order) for words in mail_words
+    )
     console = Console(file=output)
-    console.print(Columns(mail_word_tables))
+    console.print(Columns(mail_word_tables, padding=(1, 1)))
 
 
-def make_mail_words_table(words: MailWords) -> Table:
-    table = Table(show_header=False, show_lines=True)
+def make_mail_words_table(words: MailWords, with_substructure_order: bool) -> Table:
+    title = words.substructures_order.name if with_substructure_order else None
+    table = Table(title=title, show_header=False, show_lines=True)
     table.add_row(word_str(words.top_left), word_str(words.top_right))
     table.add_row(word_str(words.bottom_left), word_str(words.bottom_right))
     return table
 
 
-def word_str(word: Optional[easy_chat.Word]) -> str:
+def word_str(word: easy_chat.Word | int) -> str:
     return (
-        "???"
-        if word is None
-        else f"{word.text} ({word.category.value}, {format_hex(word.index, byte_size=2)})"
+        f"{word.text} ({word.category.value}, {format_hex(word.index, byte_size=2)})"
+        if isinstance(word, easy_chat.Word)
+        else "???"
     )
