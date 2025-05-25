@@ -1,53 +1,17 @@
 from typing import IO
 
-import typer
 from rich.align import Align
 from rich.columns import Columns
 from rich.console import Console, RenderableType
 from rich.panel import Panel
 from rich.table import Table
 
-from . import std_stream_default_arg
-from .data import IndexedItem
-from .utils import GameSaveBlock, NumberByteSize, PcPkm, format_bytes, format_hex
-
-app = typer.Typer()
+from ..data import IndexedItem
+from .bytes_handling import NumberByteSize, format_bytes, format_hex
+from .Pkm import PcPkm
 
 
-@app.command()
-def dump(
-    box: int,
-    row: int,
-    col: int,
-    decrypt: bool = True,
-    save_file: typer.FileBinaryRead = std_stream_default_arg,
-    output_file: typer.FileBinaryWrite = std_stream_default_arg,
-) -> None:
-    save_block = GameSaveBlock.from_bytes(save_file.read())
-    box_data = save_block.pc.boxes[box - 1]
-    row_index, col_index = row - 1, col - 1
-    pkm_bytes = (
-        box_data[row_index, col_index].data
-        if decrypt
-        else box_data.raw_pkm_bytes(row_index, col_index)
-    )
-    output_file.write(pkm_bytes)
-
-
-@app.command()
-def show(
-    box: int,
-    row: int,
-    col: int,
-    save_file: typer.FileBinaryRead = typer.Argument(default="-"),
-    output_file: typer.FileTextWrite = typer.Argument(default="-"),
-) -> None:
-    save_block = GameSaveBlock.from_bytes(save_file.read())
-    pkm = save_block.pc.boxes[box - 1][row - 1, col - 1]
-    print_pkm(pkm, output_file)
-
-
-def print_pkm(pkm: PcPkm, output: IO[str]) -> None:
+def pkm(pkm: PcPkm, output: IO[str]) -> None:
     overall = box(
         "Overall information",
         col(
