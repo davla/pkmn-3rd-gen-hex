@@ -4,7 +4,6 @@ from dataclasses import dataclass
 from typing import Iterable, Optional
 
 from ..data import easy_chat
-from .bytes_handling import read_int
 from .Pkm import PcPkm, PkmSubstructuresOrder
 
 
@@ -39,9 +38,9 @@ class MailWords:
 
 
 def apply_mail_words(
-    pkm: PcPkm | bytes, words: MailWords, *, is_encrypted: bool = False
+    pkm_bytes: bytes, words: MailWords, *, is_encrypted: bool = False
 ) -> PcPkm:
-    pkm_bytes = bytearray(pkm.data if isinstance(pkm, PcPkm) else pkm)
+    pkm_bytes = pkm_bytes if isinstance(pkm_bytes, bytearray) else bytearray(pkm_bytes)
     if not is_encrypted:
         PcPkm.xor_substructures(pkm_bytes)
 
@@ -54,16 +53,9 @@ def apply_mail_words(
     return PcPkm.from_bytes(pkm_bytes, xor_substructures=True)
 
 
-def set_word(pkm_bytes: bytearray, word: Optional[easy_chat.Word], *, at: int):
-    if word is not None:
-        pkm_bytes[at : at + 2] = word.index.to_bytes(length=2, byteorder="little")
-
-
-def find_mail_words(
-    pkm_bytes: bytes, order: PkmSubstructuresOrder
-) -> Iterable[MailWords]:
-    pv_high, pv_low = read_int(pkm_bytes[2:], 2), read_int(pkm_bytes, 2)
-    tid_high, tid_low = read_int(pkm_bytes[6:], 2), read_int(pkm_bytes[4:], 2)
+def find_mail_words(pkm: PcPkm, order: PkmSubstructuresOrder) -> Iterable[MailWords]:
+    pv_high, pv_low = split_into_u16(pkm.personality_value)
+    tid_high, tid_low = split_into_u16(pkm.original_trainer_id)
 
     high_word_pairs = find_encryption_word_pairs(pv_high, tid_high)
     low_word_pairs = find_encryption_word_pairs(pv_low, tid_low)
@@ -92,3 +84,12 @@ def find_encryption_word_pairs(b0: int, b1: int) -> Iterable[tuple[int, int]]:
             yield (word.index, companion_word.index)
         except KeyError:
             pass
+
+
+def set_word(pkm_bytes: bytearray, word: Optional[easy_chat.Word], *, at: int):
+    if word is not None:
+        pkm_bytes[at : at + 2] = word.index.to_bytes(length=2, byteorder="little")
+
+
+def split_into_u16(n: int) -> tuple[int, int]:
+    return (n >> 16 & 0xFF_FF, n & 0xFF_FF)

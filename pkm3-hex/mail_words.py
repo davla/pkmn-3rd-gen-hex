@@ -14,6 +14,7 @@ from .data import easy_chat
 from .utils import (
     GameSaveBlock,
     MailWords,
+    PcPkm,
     PkmJSONSerializer,
     PkmSubstructuresOrder,
     apply_mail_words,
@@ -45,10 +46,11 @@ def order(
     output_format: WordsOutputFormat = WordsOutputFormat.PRETTY,
     limit: Optional[int] = None,
 ):
-    pkm_bytes = get_pkm_bytes(pkm_bytes_file, save_file, box_pos)
-    mail_words = sorted(
-        find_mail_words(pkm_bytes, order), key=MailWords.scroll_distance
-    )[:limit]
+    (pkm_bytes, is_encrypted) = get_pkm_bytes(pkm_bytes_file, save_file, box_pos)
+    pkm = PcPkm.from_bytes(pkm_bytes, xor_substructures=is_encrypted)
+    mail_words = sorted(find_mail_words(pkm, order), key=MailWords.scroll_distance)[
+        :limit
+    ]
 
     if output_format == WordsOutputFormat.JSON:
         json.dump(mail_words, output_file, cls=PkmJSONSerializer)
@@ -69,9 +71,9 @@ def apply(
     output_file: Path = Path("-"),
     output_format: Optional[PkmOutputFormat] = PkmOutputFormat.PRETTY,
 ) -> None:
-    pkm_bytes = get_pkm_bytes(pkm_bytes_file, save_file, box_pos)
+    (pkm_bytes, is_encrypted) = get_pkm_bytes(pkm_bytes_file, save_file, box_pos)
     words = cast(MailWords, json.load(words_file, cls=PkmJSONSerializer))
-    pkm = apply_mail_words(pkm_bytes, words)
+    pkm = apply_mail_words(pkm_bytes, words, is_encrypted=is_encrypted)
 
     write_mode = "wb" if output_format == PkmOutputFormat.BINARY else "w"
     with typer.open_file(output_file, mode=write_mode) as output:
@@ -85,7 +87,7 @@ def get_pkm_bytes(
     pkm_bytes_file: Optional[typer.FileBinaryRead],
     save_file: Optional[typer.FileBinaryRead],
     box_pos: Optional[tuple[int, int, int]],
-) -> bytes:
+) -> tuple[bytes, bool]:
     match (pkm_bytes_file, save_file):
         case (None, None):
             raise typer.BadParameter(
@@ -96,7 +98,7 @@ def get_pkm_bytes(
             )
 
         case (pkm_bytes, None):
-            return pkm_bytes.read()
+            return (pkm_bytes.read(), False)
 
         case (None, save):
             if box_pos is None:
@@ -107,7 +109,7 @@ def get_pkm_bytes(
                 )
             box, row, col = box_pos
             save_block = GameSaveBlock.from_bytes(save.read())
-            return save_block.pc.boxes[box - 1][row - 1, col - 1].data
+            return (save_block.pc.boxes[box - 1].raw_pkm_bytes(row - 1, col - 1), True)
 
         case (_, _):
             raise typer.BadParameter(
