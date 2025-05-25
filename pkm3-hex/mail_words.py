@@ -17,8 +17,6 @@ from .utils import (
     PcPkm,
     PkmJSONSerializer,
     PkmSubstructuresOrder,
-    apply_mail_words,
-    find_mail_words,
     format_hex,
     pretty_print,
 )
@@ -48,9 +46,9 @@ def order(
 ):
     (pkm_bytes, is_encrypted) = get_pkm_bytes(pkm_bytes_file, save_file, box_pos)
     pkm = PcPkm.from_bytes(pkm_bytes, xor_substructures=is_encrypted)
-    mail_words = sorted(find_mail_words(pkm, order), key=MailWords.scroll_distance)[
-        :limit
-    ]
+    mail_words = sorted(
+        MailWords.find_for_substructure_order(pkm, order), key=MailWords.scroll_distance
+    )[:limit]
 
     if output_format == WordsOutputFormat.JSON:
         json.dump(mail_words, output_file, cls=PkmJSONSerializer)
@@ -73,7 +71,7 @@ def apply(
 ) -> None:
     (pkm_bytes, is_encrypted) = get_pkm_bytes(pkm_bytes_file, save_file, box_pos)
     words = cast(MailWords, json.load(words_file, cls=PkmJSONSerializer))
-    pkm = apply_mail_words(pkm_bytes, words, is_encrypted=is_encrypted)
+    pkm = words.apply_to_pkm(pkm_bytes, is_encrypted=is_encrypted)
 
     write_mode = "wb" if output_format == PkmOutputFormat.BINARY else "w"
     with typer.open_file(output_file, mode=write_mode) as output:
