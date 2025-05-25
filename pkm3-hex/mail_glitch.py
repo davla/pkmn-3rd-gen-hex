@@ -1,15 +1,13 @@
 import json
-import sys
 from enum import StrEnum
-from pathlib import Path
-from typing import IO, Annotated, Optional
+from typing import IO, Optional
 
 import typer
 from rich.columns import Columns
 from rich.console import Console
 from rich.table import Table
 
-from . import FILE_STD_STREAM_ARG
+from . import std_stream_default_arg
 from .data import easy_chat
 from .utils import (
     MailWords,
@@ -30,45 +28,29 @@ class OutputFormat(StrEnum):
 @app.command()
 def words(
     order: PkmSubstructuresOrder,
-    pkm_bytes_file: Annotated[Path, typer.Argument()] = FILE_STD_STREAM_ARG,
-    output_file: Annotated[Path, typer.Argument()] = FILE_STD_STREAM_ARG,
+    pkm_bytes_file: typer.FileBinaryRead = std_stream_default_arg,
+    output_file: typer.FileTextWrite = std_stream_default_arg,
     output_format: OutputFormat = OutputFormat.PRETTY,
     limit: Optional[int] = None,
 ) -> None:
-    if pkm_bytes_file == FILE_STD_STREAM_ARG:
-        pkm_bytes = sys.stdin.buffer.read()
+    mail_words = sorted(
+        find_mail_words(pkm_bytes_file.read(), order), key=MailWords.scroll_distance
+    )[:limit]
+
+    if output_format == OutputFormat.JSON:
+        json.dump(mail_words, output_file, cls=PkmJSONSerializer)
     else:
-        with open(pkm_bytes_file, "rb") as pkm_input:
-            pkm_bytes = pkm_input.read()
+        if not mail_words:
+            print("No mail glitch words found", file=output_file)
+            raise typer.Exit(63)
 
-    mail_words = find_mail_words(pkm_bytes, order)
-    displayed_mail_words = sorted(mail_words, key=MailWords.scroll_distance)[:limit]
-
-    if output_file == FILE_STD_STREAM_ARG:
-        success = print_words(displayed_mail_words, sys.stdout, output_format)
-    else:
-        with open(output_file, "w") as output:
-            success = print_words(displayed_mail_words, output, output_format)
-
-    if not success:
-        raise typer.Exit(63)
+        print_words(mail_words, output_file)
 
 
-def print_words(
-    mail_words: list[MailWords], output: IO[str], format: OutputFormat
-) -> bool:
-    if format == OutputFormat.JSON:
-        json.dump(mail_words, output, cls=PkmJSONSerializer)
-        return True
-
-    if not mail_words:
-        print("No mail glitch words found", file=output)
-        return False
-
+def print_words(mail_words: list[MailWords], output: IO[str]):
     mail_word_tables = map(make_mail_words_table, mail_words)
     console = Console(file=output)
     console.print(Columns(mail_word_tables))
-    return True
 
 
 def make_mail_words_table(words: MailWords) -> Table:

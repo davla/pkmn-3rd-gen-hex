@@ -1,3 +1,4 @@
-from pathlib import Path
+import typer
 
-FILE_STD_STREAM_ARG = Path("-")
+std_stream_default_arg = typer.Argument(default="-")
+std_stream_default_opt = typer.Option(default="-")
