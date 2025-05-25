@@ -1,72 +1,17 @@
-import sys
-from pathlib import Path
-from typing import IO, Annotated
+from typing import IO
 
-import typer
 from rich.align import Align
 from rich.columns import Columns
 from rich.console import Console, RenderableType
 from rich.panel import Panel
 from rich.table import Table
 
-from . import FILE_STD_STREAM_ARG
-from .data import IndexedItem
-from .utils import GameSaveBlock, NumberByteSize, PcPkm, format_bytes, format_hex
-
-app = typer.Typer()
+from ..data import IndexedItem
+from .bytes_handling import NumberByteSize, format_bytes, format_hex
+from .Pkm import PcPkm
 
 
-@app.command()
-def dump(
-    save_file: Path,
-    box: int,
-    row: int,
-    col: int,
-    decrypt: bool = True,
-    output_file: Annotated[Path, typer.Argument()] = FILE_STD_STREAM_ARG,
-) -> None:
-    with open(save_file, "rb") as save:
-        save_bytes = bytearray(save.read())
-
-    save_block = GameSaveBlock.from_bytes(save_bytes)
-    box_data = save_block.pc.boxes[box - 1]
-
-    row_index, col_index = row - 1, col - 1
-    pkm_bytes = (
-        box_data[row_index, col_index].data
-        if decrypt
-        else box_data.raw_pkm_bytes(row_index, col_index)
-    )
-
-    if output_file == FILE_STD_STREAM_ARG:
-        sys.stdout.buffer.write(pkm_bytes)
-    else:
-        with open(output_file, "wb") as output:
-            output.write(pkm_bytes)
-
-
-@app.command()
-def show(
-    save_file: Path,
-    box: int,
-    row: int,
-    col: int,
-    output_file: Annotated[Path, typer.Argument()] = FILE_STD_STREAM_ARG,
-) -> None:
-    with open(save_file, "rb") as save:
-        save_bytes = bytearray(save.read())
-
-    save_block = GameSaveBlock.from_bytes(save_bytes)
-    pkm = save_block.pc.boxes[box - 1][row - 1, col - 1]
-
-    if output_file == FILE_STD_STREAM_ARG:
-        print_pkm(pkm, sys.stdout)
-    else:
-        with open(output_file, "w") as output:
-            print_pkm(pkm, output)
-
-
-def print_pkm(pkm: PcPkm, output: IO[str]) -> None:
+def pkm(pkm: PcPkm, output: IO[str]) -> None:
     overall = box(
         "Overall information",
         col(
