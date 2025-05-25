@@ -29,7 +29,10 @@ def pkm(pkm: PcPkm, output: IO[str]) -> None:
         ),
         col(label("Nickname"), format_bytes(pkm.nickname)),
         col(label("Language"), format_hex(pkm.language, byte_size=1)),
-        col(label("Bad egg?"), str(pkm.is_bad_egg)),
+        col(
+            label("Bad egg?"),
+            "[red bold]True[/]" if pkm.is_bad_egg else "[green bold]False[/]",
+        ),
         col(label("Original trainer name"), format_bytes(pkm.original_trainer_name)),
         col(label("Markings"), format_hex(pkm.markings, byte_size=1)),
         col(label("Checksum"), format_hex(pkm.checksum, byte_size=4)),

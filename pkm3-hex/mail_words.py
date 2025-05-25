@@ -1,7 +1,8 @@
 import json
 import os
 from enum import StrEnum
-from typing import IO, Optional
+from pathlib import Path
+from typing import IO, Optional, cast
 
 import typer
 from rich.columns import Columns
@@ -15,26 +16,33 @@ from .utils import (
     MailWords,
     PkmJSONSerializer,
     PkmSubstructuresOrder,
+    apply_mail_words,
     find_mail_words,
     format_hex,
+    pretty_print,
 )
 
 app = typer.Typer()
 
 
-class OutputFormat(StrEnum):
+class WordsOutputFormat(StrEnum):
     JSON = "json"
     PRETTY = "pretty"
 
 
+class PkmOutputFormat(StrEnum):
+    BINARY = "binary"
+    PRETTY = "pretty"
+
+
 @app.command()
-def words(
+def order(
     order: PkmSubstructuresOrder,
     pkm_bytes_file: Optional[typer.FileBinaryRead] = None,
     save_file: Optional[typer.FileBinaryRead] = None,
     box_pos: Optional[tuple[int, int, int]] = None,
     output_file: typer.FileTextWrite = std_stream_default_opt,
-    output_format: OutputFormat = OutputFormat.PRETTY,
+    output_format: WordsOutputFormat = WordsOutputFormat.PRETTY,
     limit: Optional[int] = None,
 ):
     pkm_bytes = get_pkm_bytes(pkm_bytes_file, save_file, box_pos)
@@ -42,7 +50,7 @@ def words(
         find_mail_words(pkm_bytes, order), key=MailWords.scroll_distance
     )[:limit]
 
-    if output_format == OutputFormat.JSON:
+    if output_format == WordsOutputFormat.JSON:
         json.dump(mail_words, output_file, cls=PkmJSONSerializer)
     else:
         if not mail_words:
@@ -50,6 +58,27 @@ def words(
             raise typer.Exit(63)
 
         print_words(mail_words, output_file)
+
+
+@app.command()
+def apply(
+    pkm_bytes_file: Optional[typer.FileBinaryRead] = None,
+    save_file: Optional[typer.FileBinaryRead] = None,
+    box_pos: Optional[tuple[int, int, int]] = None,
+    words_file: Optional[typer.FileText] = None,
+    output_file: Path = Path("-"),
+    output_format: Optional[PkmOutputFormat] = PkmOutputFormat.PRETTY,
+) -> None:
+    pkm_bytes = get_pkm_bytes(pkm_bytes_file, save_file, box_pos)
+    words = cast(MailWords, json.load(words_file, cls=PkmJSONSerializer))
+    pkm = apply_mail_words(pkm_bytes, words)
+
+    write_mode = "wb" if output_format == PkmOutputFormat.BINARY else "w"
+    with typer.open_file(output_file, mode=write_mode) as output:
+        if output_format == PkmOutputFormat.BINARY:
+            output.write(pkm.data)
+        else:
+            pretty_print.pkm(pkm, output)
 
 
 def get_pkm_bytes(

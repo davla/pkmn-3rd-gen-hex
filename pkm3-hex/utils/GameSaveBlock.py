@@ -77,7 +77,7 @@ class Pc:
         def __getitem__(self, pos: tuple[int, int]) -> PcPkm:
             row, col = pos
             return PcPkm.from_bytes(
-                self.raw_pkm_bytes(row, col), decrypt_substructures=True
+                self.raw_pkm_bytes(row, col), xor_substructures=True
             )
 
         def raw_pkm_bytes(self, row: int, col: int) -> bytes:

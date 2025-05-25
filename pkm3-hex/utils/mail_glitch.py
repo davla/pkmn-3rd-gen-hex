@@ -5,7 +5,7 @@ from typing import Iterable, Optional
 
 from ..data import easy_chat
 from .bytes_handling import read_int
-from .Pkm import PkmSubstructuresOrder
+from .Pkm import PcPkm, PkmSubstructuresOrder
 
 
 @dataclass
@@ -36,6 +36,27 @@ class MailWords:
         return word.category.scroll_distance + math.ceil(
             sorted_words_in_category.index(word.text) / 2
         )
+
+
+def apply_mail_words(
+    pkm: PcPkm | bytes, words: MailWords, *, is_encrypted: bool = False
+) -> PcPkm:
+    pkm_bytes = bytearray(pkm.data if isinstance(pkm, PcPkm) else pkm)
+    if not is_encrypted:
+        PcPkm.xor_substructures(pkm_bytes)
+
+    set_word(pkm_bytes, words.top_left, at=PcPkm.PV_OFFSET)
+    set_word(pkm_bytes, words.top_right, at=PcPkm.PV_OFFSET + 2)
+    set_word(pkm_bytes, words.bottom_left, at=PcPkm.OT_ID_OFFSET)
+    set_word(pkm_bytes, words.bottom_right, at=PcPkm.OT_ID_OFFSET + 2)
+
+    # Decrypt with new encryption key
+    return PcPkm.from_bytes(pkm_bytes, xor_substructures=True)
+
+
+def set_word(pkm_bytes: bytearray, word: Optional[easy_chat.Word], *, at: int):
+    if word is not None:
+        pkm_bytes[at : at + 2] = word.index.to_bytes(length=2, byteorder="little")
 
 
 def find_mail_words(
