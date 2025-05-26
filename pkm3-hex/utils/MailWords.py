@@ -1,5 +1,4 @@
 import itertools
-import math
 from dataclasses import dataclass
 from typing import Iterator, Self
 
@@ -15,6 +14,7 @@ class MailWords:
     bottom_right: easy_chat.Word | int
 
     substructures_order: PkmSubstructuresOrder
+    scroll_distance: int
 
     def apply_to_pkm(self, pkm_bytes: bytes, *, is_encrypted: bool = False) -> PcPkm:
         pkm_bytes = (
@@ -31,25 +31,29 @@ class MailWords:
         # Decrypt with new encryption key
         return PcPkm.from_bytes(pkm_bytes, xor_substructures=True)
 
-    def scroll_distance(self) -> int:
-        return (
-            self._word_scroll_distance(self.top_left)
-            + self._word_scroll_distance(self.top_right)
-            + self._word_scroll_distance(self.bottom_left)
-            + self._word_scroll_distance(self.bottom_right)
-        )
-
     @classmethod
     def from_indices(
         cls, *, top_left: int, top_right: int, bottom_left: int, bottom_right: int
     ) -> Self:
-        personality_value = top_right << 16 | top_left
+        tl = easy_chat.words.get(top_left, top_left)
+        tr = easy_chat.words.get(top_right, top_right)
+        bl = easy_chat.words.get(bottom_left, bottom_left)
+        br = easy_chat.words.get(bottom_right, bottom_right)
+        substructures_order = PkmSubstructuresOrder((top_right << 16 | top_left) % 24)
+        scroll_distance = (
+            cls._word_scroll_distance(tl)
+            + cls._word_scroll_distance(tr)
+            + cls._word_scroll_distance(bl)
+            + cls._word_scroll_distance(br)
+        )
+
         return cls(
-            top_left=easy_chat.words.get(top_left, top_left),
-            top_right=easy_chat.words.get(top_right, top_right),
-            bottom_left=easy_chat.words.get(bottom_left, bottom_left),
-            bottom_right=easy_chat.words.get(bottom_right, bottom_right),
-            substructures_order=PkmSubstructuresOrder(personality_value % 24),
+            top_left=tl,
+            top_right=tr,
+            bottom_left=bl,
+            bottom_right=br,
+            substructures_order=substructures_order,
+            scroll_distance=scroll_distance,
         )
 
     @classmethod
@@ -66,15 +70,14 @@ class MailWords:
     def find_for_pkm(cls, pkm: PcPkm) -> Iterator[Self]:
         mail_words = sorted(
             cls._words_with_same_encryption_key(pkm),
-            key=cls._order_sort_key,
+            key=lambda w: (w.substructures_order.name, w.scroll_distance),
         )
         return (
             next(words)
-            for _, words in itertools.groupby(mail_words, key=cls._order_sort_key)
+            for _, words in itertools.groupby(
+                mail_words, key=lambda w: w.substructures_order.name
+            )
         )
-
-    def _order_sort_key(self) -> str:
-        return self.substructures_order.name
 
     @classmethod
     def _words_with_same_encryption_key(cls, pkm: PcPkm) -> Iterator[Self]:
@@ -119,14 +122,4 @@ class MailWords:
 
     @staticmethod
     def _word_scroll_distance(word: easy_chat.Word | int) -> int:
-        if not isinstance(word, easy_chat.Word):
-            return 0
-
-        sorted_words_in_category = list(
-            sorted(
-                w.text for w in easy_chat.words.values() if w.category == word.category
-            )
-        )
-        return word.category.scroll_distance + math.ceil(
-            sorted_words_in_category.index(word.text) / 2
-        )
+        return word.scroll_distance if isinstance(word, easy_chat.Word) else 0

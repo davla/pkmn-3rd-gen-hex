@@ -95,7 +95,8 @@ def order(
     (pkm_bytes, is_encrypted) = get_pkm_bytes(pkm_bytes_file, save_file, box_pos)
     pkm = PcPkm.from_bytes(pkm_bytes, xor_substructures=is_encrypted)
     mail_words = sorted(
-        MailWords.find_for_substructure_order(pkm, order), key=MailWords.scroll_distance
+        MailWords.find_for_substructure_order(pkm, order),
+        key=lambda w: w.scroll_distance,
     )[:limit]
 
     if output_format == WordsOutputFormat.JSON:
