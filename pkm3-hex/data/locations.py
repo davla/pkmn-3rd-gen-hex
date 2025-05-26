@@ -12,7 +12,7 @@ class Location(IndexedItem):
 
 
 locations = defaultdict(
-    lambda: Location(index=0x100, name="Glitch location"),
+    lambda: Location(index=0xD5, name="Glitch location"),
     {
         location.index: location
         for location in (
