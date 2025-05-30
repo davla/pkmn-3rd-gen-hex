@@ -303,67 +303,99 @@ class PcPkm:
     OT_NAME_OFFSET = 0x14
     MARKINGS_OFFSET = 0x1B
     CHECKSUM_OFFSET = 0x1C
-    SUBSTRUCTURES_OFFSET = 0x20
 
     SIZE = 80
-    SUBSTRUCTURE_SIZE = 12
 
     @classmethod
-    def from_bytes(cls, buffer: bytes, *, decrypt_substructures: bool = True) -> Self:
-        pv_bytes = buffer[cls.PV_OFFSET : cls.OT_ID_OFFSET]
-        otid_bytes = buffer[cls.OT_ID_OFFSET : cls.NICKNAME_OFFSET]
-        encryption_key = bytes(cls._pairwise_xor(pv_bytes, otid_bytes))
-        if decrypt_substructures:
-            buffer = bytearray(buffer)
-            buffer[cls.SUBSTRUCTURES_OFFSET :] = cls._decrypt_substructures(
-                buffer[cls.SUBSTRUCTURES_OFFSET :], encryption_key
-            )
-        substructure_bytes = buffer[cls.SUBSTRUCTURES_OFFSET :]
+    def from_bytes(cls, buffer: bytes, *, xor_substructures: bool = True) -> Self:
+        buffer = bytearray(buffer)
 
-        personality_value = read_int(pv_bytes)
-        substructure_order = PkmSubstructuresOrder(personality_value % 24)
+        substructures = cls._Substructures.from_bytes(buffer, xor=xor_substructures)
+        if xor_substructures:
+            substructures.write_into(buffer)
+
+        # Verify bad egg
+        checksum = read_int(buffer[cls.CHECKSUM_OFFSET :], 2)
+        if substructures.data_sum() & 0xFF_FF != checksum:
+            buffer[cls.MISC_OFFSET] |= 0x01
 
         return cls(
-            personality_value=personality_value,
-            original_trainer_id=read_int(otid_bytes),
+            personality_value=substructures.pv,
+            original_trainer_id=substructures.otid,
             nickname=buffer[cls.NICKNAME_OFFSET : cls.LANGUAGE_OFFSET],
             language=buffer[cls.LANGUAGE_OFFSET],
             is_bad_egg=buffer[cls.MISC_OFFSET] & 0x01 == 0x01,
             original_trainer_name=buffer[cls.OT_NAME_OFFSET : cls.MARKINGS_OFFSET],
             markings=buffer[cls.MARKINGS_OFFSET],
-            checksum=read_int(buffer[cls.CHECKSUM_OFFSET :], 2),
-            substructure_order=substructure_order,
-            substructure_encryption_key=read_int(encryption_key),
-            growth=PkmGrowth.from_bytes(
-                cls._get_substructure_bytes(substructure_bytes, substructure_order, "G")
-            ),
-            attacks=PkmAttacks.from_bytes(
-                cls._get_substructure_bytes(substructure_bytes, substructure_order, "A")
-            ),
+            checksum=checksum,
+            substructure_order=substructures.order,
+            substructure_encryption_key=substructures.encryption_key,
+            growth=PkmGrowth.from_bytes(substructures.get_substructure_bytes("G")),
+            attacks=PkmAttacks.from_bytes(substructures.get_substructure_bytes("A")),
             evs_and_conditions=PkmEvsAndConditions.from_bytes(
-                cls._get_substructure_bytes(substructure_bytes, substructure_order, "E")
+                substructures.get_substructure_bytes("E")
             ),
-            misc=PkmMisc.from_bytes(
-                cls._get_substructure_bytes(substructure_bytes, substructure_order, "M")
-            ),
+            misc=PkmMisc.from_bytes(substructures.get_substructure_bytes("M")),
             data=buffer,
         )
 
     @classmethod
-    def _decrypt_substructures(cls, buffer: bytes, encryption_key: bytes) -> bytes:
-        return bytes(cls._pairwise_xor(itertools.cycle(encryption_key), buffer))
+    def xor_substructures(cls, pkm_bytes: bytearray):
+        substructures = cls._Substructures.from_bytes(pkm_bytes, xor=True)
+        pkm_bytes[cls._Substructures.OFFSET :] = substructures.data
 
-    @classmethod
-    def _get_substructure_bytes(
-        cls,
-        buffer: bytes,
-        order: PkmSubstructuresOrder,
-        substructure: Literal["G", "A", "E", "M"],
-    ) -> bytes:
-        pos = order.value.index(substructure.lower())
-        start_index = pos * cls.SUBSTRUCTURE_SIZE
-        return buffer[start_index : start_index + cls.SUBSTRUCTURE_SIZE]
+    @dataclass
+    class _Substructures:
+        # Computed data
+        order: PkmSubstructuresOrder
+        encryption_key: int
 
-    @staticmethod
-    def _pairwise_xor(b0: Iterable[int], b1: Iterable[int]) -> Iterable[int]:
-        return itertools.starmap(operator.xor, zip(b0, b1))
+        # Bytes
+        data: bytes
+
+        # Convenience fields
+        pv: int
+        otid: int
+
+        OFFSET = 0x20
+        SINGLE_SUBSTRUCTURE_SIZE = 12
+        SIZE = SINGLE_SUBSTRUCTURE_SIZE * 4
+
+        def get_substructure_bytes(
+            self,
+            substructure: Literal["G", "A", "E", "M"],
+        ) -> bytes:
+            pos = self.order.value.index(substructure.lower())
+            start_index = pos * self.SINGLE_SUBSTRUCTURE_SIZE
+            return self.data[start_index : start_index + self.SINGLE_SUBSTRUCTURE_SIZE]
+
+        def write_into(self, pkm_bytes: bytearray):
+            pkm_bytes[self.OFFSET :] = self.data
+
+        def data_sum(self) -> int:
+            return sum(read_int(bytes(n)) for n in itertools.batched(self.data, 2))
+
+        @classmethod
+        def from_bytes(cls, pkm_bytes: bytes, *, xor: bool) -> Self:
+            pv_bytes = pkm_bytes[PcPkm.PV_OFFSET : PcPkm.OT_ID_OFFSET]
+            otid_bytes = pkm_bytes[PcPkm.OT_ID_OFFSET : PcPkm.NICKNAME_OFFSET]
+            encryption_key_bytes = cls._pairwise_xor(pv_bytes, otid_bytes)
+
+            pv = read_int(pv_bytes)
+            order = PkmSubstructuresOrder(pv % 24)
+
+            data = pkm_bytes[cls.OFFSET : cls.OFFSET + cls.SIZE]
+            if xor:
+                data = cls._pairwise_xor(itertools.cycle(encryption_key_bytes), data)
+
+            return cls(
+                encryption_key=read_int(encryption_key_bytes),
+                order=order,
+                data=data,
+                pv=pv,
+                otid=read_int(otid_bytes),
+            )
+
+        @staticmethod
+        def _pairwise_xor(b0: Iterable[int], b1: Iterable[int]) -> bytes:
+            return bytes(itertools.starmap(operator.xor, zip(b0, b1)))

@@ -3,7 +3,7 @@ from json import JSONDecoder, JSONEncoder
 from typing import Any, Callable
 
 from ..data import easy_chat
-from .mail_glitch import MailWords
+from .MailWords import MailWords
 
 type KwArgs = dict[str, Any]
 
