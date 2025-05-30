@@ -55,7 +55,7 @@ class PkmJSONSerializer(JSONDecoder, JSONEncoder):
 
     @classmethod
     def _parse_mail_words(cls, o: JSONObject) -> MailWords:
-        return MailWords(
+        return MailWords.from_indices(
             top_left=o["top_left"],
             top_right=o["top_right"],
             bottom_left=o["bottom_left"],
